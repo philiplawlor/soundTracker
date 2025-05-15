@@ -10,3 +10,6 @@ class SoundEventCreate(BaseModel):
 
 class SoundEventRead(SoundEventCreate):
     id: int
+
+class AISoundIdentifyResponse(BaseModel):
+    label: str

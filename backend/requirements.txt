@@ -6,3 +6,4 @@ pytest
 httpx
 sounddevice  # For future audio capture, platform-specific
 python-dotenv
+python-multipart

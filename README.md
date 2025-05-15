@@ -1,6 +1,6 @@
 # SoundTracker
 
-![version](https://img.shields.io/badge/version-0.2.0-blue)
+![version](https://img.shields.io/badge/version-0.3.0-blue)
 
 SoundTracker is an application for tracking and analyzing sounds you make throughout the day. It runs in the background, records noise levels, uses AI for sound identification, and provides charts and filters for your data.
 
@@ -18,6 +18,20 @@ SoundTracker is an application for tracking and analyzing sounds you make throug
 - Platform: Linux, Raspberry Pi, WSL, Android, iOS
 
 ## Backend Setup
+
+### AI Sound Identification Endpoint
+
+- **POST /ai/identify**
+  - Accepts: WAV file upload (form field: `file`)
+  - Returns: `{ "label": "speech" }` (stub: random label)
+  - Example (with curl):
+    ```sh
+    curl -F "file=@path/to/audio.wav" http://localhost:8000/ai/identify
+    ```
+  - Only WAV files are supported for now.
+
+- To enable file uploads, the backend uses the `python-multipart` dependency (installed in requirements.txt).
+
 
 1. Open a terminal in the `backend` directory.
 2. Create a Python virtual environment:
