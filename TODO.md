@@ -3,8 +3,8 @@
 Track feature requests, improvements, and ideas here. Strikethrough items when done and include version number.
 
 ## MVP Features
-- [ ] Listen to the sound of the microphone
-- [ ] Record the average noise level
+- [x] ~~Listen to the sound of the microphone~~ (v0.2.0)
+- [x] ~~Record the average noise level~~ (v0.2.0)
 - [ ] Use AI to identify the sound and record the description
 - [ ] Save the data to a database
 - [ ] Create a chart of the noise level
