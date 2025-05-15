@@ -1,5 +1,11 @@
 # CHANGES.md - SoundTracker
 
+## [0.3.1] - 2025-05-15
+- Integrated real YAMNet model (TensorFlow Hub) for sound classification
+- Fixed class map download to use official repo
+- Patched tests to use valid WAV files and close SQLite properly
+- All tests passing
+
 ## [0.3.0] - 2025-05-15
 - AI sound identification endpoint (`/ai/identify`) added
 - Pluggable backend AI stub (random label, ready for ML model)

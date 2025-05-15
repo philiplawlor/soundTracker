@@ -4,12 +4,20 @@ from backend.main import app
 
 def test_identify_endpoint():
     client = TestClient(app)
-    # Generate fake WAV header (44 bytes) + silence
-    wav_header = b'RIFF' + b'\x00' * 40
-    audio_data = wav_header + b'\x00' * 1000
-    files = {"file": ("test.wav", io.BytesIO(audio_data), "audio/wav")}
+    # Generate a minimal valid WAV file (PCM, mono, 16kHz, silence)
+    import wave
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix='.wav') as tmp:
+        with wave.open(tmp, 'wb') as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(16000)
+            wf.writeframes(b'\x00' * 32000)  # 1 second silence
+        tmp.seek(0)
+        files = {"file": ("test.wav", tmp.read(), "audio/wav")}
     response = client.post("/ai/identify", files=files)
     assert response.status_code == 200
     data = response.json()
     assert "label" in data
     assert isinstance(data["label"], str)
+    # For CI: consider mocking identify_sound for speed/determinism

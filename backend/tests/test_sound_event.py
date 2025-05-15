@@ -33,6 +33,7 @@ def client_fixture():
     yield client
     app.dependency_overrides.clear()
     if os.path.exists(test_db_path):
+        engine.dispose()  # Ensure all connections are closed
         os.remove(test_db_path)
 
 def test_create_and_read_sound_event(client):

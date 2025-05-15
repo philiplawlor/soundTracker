@@ -1,6 +1,6 @@
 # SoundTracker
 
-![version](https://img.shields.io/badge/version-0.3.0-blue)
+![version](https://img.shields.io/badge/version-0.3.1-blue)
 
 SoundTracker is an application for tracking and analyzing sounds you make throughout the day. It runs in the background, records noise levels, uses AI for sound identification, and provides charts and filters for your data.
 
@@ -23,14 +23,20 @@ SoundTracker is an application for tracking and analyzing sounds you make throug
 
 - **POST /ai/identify**
   - Accepts: WAV file upload (form field: `file`)
-  - Returns: `{ "label": "speech" }` (stub: random label)
+  - Returns: `{ "label": "Speech" }` (real label from YAMNet model)
   - Example (with curl):
     ```sh
     curl -F "file=@path/to/audio.wav" http://localhost:8000/ai/identify
     ```
   - Only WAV files are supported for now.
 
-- To enable file uploads, the backend uses the `python-multipart` dependency (installed in requirements.txt).
+#### How it works
+- Uses Google’s [YAMNet](https://tfhub.dev/google/yamnet/1) model via TensorFlow Hub for real sound classification (521 classes).
+- Audio is preprocessed (mono, 16kHz) and passed to the model.
+- The top predicted class label is returned.
+
+#### Dependencies
+- `tensorflow`, `tensorflow-hub`, `librosa`, `soundfile`, `python-multipart` (see requirements.txt)
 
 
 1. Open a terminal in the `backend` directory.
