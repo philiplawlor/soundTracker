@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+sqlmodel
+pydantic
+pytest
+httpx
+sounddevice  # For future audio capture, platform-specific
+python-dotenv

@@ -13,9 +13,13 @@ Strikethrough items from the TODO.md list that are done, include the version num
 
 Create a new git repo and push changes to the repository when things are working nicely.
 
+Do not use && between commands when developing on Windows.
+
 My common tech stack is python, flask, sqlalchemy, alembic, pytest, flutter, mongodb atlas or sqlite.
     - Individual projects may use different tech stacks.
 
 Always work in a python virtual environment.
 
 This dev environment is a windows 11, Windsurf is running from PowerShell.
+
+Create a run file in BASH and Batch for running the backend and frontend.
