@@ -1,5 +1,10 @@
 # CHANGES.md - SoundTracker
 
+## [0.3.2] - 2025-05-16
+- Added run/stop scripts for backend and frontend (`run_soundTracker`/`stop_soundTracker`) for Windows and Bash
+- Documented usage in README
+- Improved developer experience for all platforms
+
 ## [0.3.1] - 2025-05-15
 - Integrated real YAMNet model (TensorFlow Hub) for sound classification
 - Fixed class map download to use official repo

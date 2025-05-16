@@ -1,6 +1,6 @@
 # SoundTracker
 
-![version](https://img.shields.io/badge/version-0.3.1-blue)
+![version](https://img.shields.io/badge/version-0.3.2-blue)
 
 SoundTracker is an application for tracking and analyzing sounds you make throughout the day. It runs in the background, records noise levels, uses AI for sound identification, and provides charts and filters for your data.
 
@@ -9,6 +9,33 @@ SoundTracker is an application for tracking and analyzing sounds you make throug
 - See `TASK.md` for current tasks and backlog
 - See `TODO.md` for feature requests and changes
 - See `CHANGES.md` for version history
+
+## Getting Started
+
+### Quick Start Scripts
+
+> **Added in v0.3.2**
+
+You can use the following scripts to start and stop the backend (FastAPI) and frontend (Flutter) together:
+
+#### Windows
+- **Start:** `run_soundTracker.bat`
+- **Stop:** `stop_soundTracker.bat`
+
+#### Linux/macOS (Bash)
+- **Start:** `./run_soundTracker.sh`
+- **Stop:** `./stop_soundTracker.sh`
+
+> Make sure to `chmod +x *.sh` on Unix systems before running.
+
+**What these scripts do:**
+- Start: Launches the backend (with venv) and frontend (Flutter desktop) in separate terminals/processes.
+- Stop: Kills backend and frontend processes (by port or process name), then checks that ports are freed up (8000 for backend, 50300+ for Flutter).
+
+**Troubleshooting:**
+- If a port is still in use after stopping, you may need to manually kill the process or restart your system.
+- On Windows, ensure you have the necessary permissions to kill processes.
+- On Linux/macOS, `lsof` is required for port checks.
 
 ## Tech Stack
 - Backend: Python (FastAPI, SQLAlchemy/SQLModel, pydantic, pytest)
