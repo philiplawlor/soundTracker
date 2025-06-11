@@ -1,5 +1,14 @@
 # CHANGES.md - SoundTracker
 
+## [0.4.0] - 2025-06-11
+- Fixed WebSocket endpoint for real-time audio device listing and monitoring
+- Added detailed logging for WebSocket connections and message handling
+- Implemented proper error handling and connection management for WebSockets
+- Added test scripts for WebSocket communication
+- Improved backend project structure and imports
+- Added setup.py for proper package installation
+- Updated documentation and version numbers
+
 ## [0.3.0] - 2025-05-15
 - AI sound identification endpoint (`/ai/identify`) added
 - Pluggable backend AI stub (random label, ready for ML model)
