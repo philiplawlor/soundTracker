@@ -1,9 +1,26 @@
-fastapi
-uvicorn
-sqlmodel
-pydantic
-pytest
-httpx
-sounddevice  # For future audio capture, platform-specific
-python-dotenv
-python-multipart
+# Core
+fastapi>=0.68.0,<0.69.0
+uvicorn>=0.15.0,<0.16.0
+python-multipart>=0.0.5,<0.1.0
+python-dotenv>=0.19.0,<0.20.0
+
+# Database
+sqlmodel>=0.0.8,<0.1.0
+sqlalchemy>=1.4.0,<2.0.0
+
+# Audio Processing
+sounddevice>=0.4.4,<0.5.0
+numpy>=1.21.0,<2.0.0
+
+# Web and API
+httpx>=0.19.0,<0.20.0
+jinja2>=3.0.0,<4.0.0
+aiofiles>=0.7.0,<0.8.0
+
+# Testing
+pytest>=6.2.5,<7.0.0
+pytest-asyncio>=0.15.1,<0.16.0
+httpx>=0.19.0,<0.20.0
+
+# Development
+python-dotenv>=0.19.0,<0.20.0

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoundTracker - Audio Level Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .level-meter {
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 4px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        .level-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            transition: width 0.3s ease;
+        }
+        .level-text {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .chart-container {
+            margin-top: 20px;
+            height: 300px;
+        }
+        .controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SoundTracker - Audio Level Monitor</h1>
+        
+        <div class="controls">
+            <button id="connectBtn">Connect</button>
+            <button id="disconnectBtn" disabled>Disconnect</button>
+        </div>
+        
+        <div id="status" class="status disconnected">
+            Status: Disconnected
+        </div>
+        
+        <div class="level-meter">
+            <div id="levelFill" class="level-fill"></div>
+        </div>
+        
+        <div id="levelText" class="level-text">-∞ dBFS</div>
+        
+        <div class="chart-container">
+            <canvas id="levelChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const config = {
+            wsUrl: `ws://${window.location.host}/audio/ws`,
+            maxDataPoints: 100,
+            updateInterval: 100, // ms
+            dbRange: {
+                min: -80,
+                max: 0
+            }
+        };
+
+        // DOM Elements
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const statusElement = document.getElementById('status');
+        const levelFill = document.getElementById('levelFill');
+        const levelText = document.getElementById('levelText');
+        
+        // WebSocket connection
+        let socket = null;
+        let isConnected = false;
+        
+        // Chart setup
+        const ctx = document.getElementById('levelChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(config.maxDataPoints).fill(''),
+                datasets: [{
+                    label: 'Noise Level (dBFS)',
+                    data: [],
+                    borderColor: '#4CAF50',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        min: config.dbRange.min,
+                        max: config.dbRange.max,
+                        title: {
+                            display: true,
+                            text: 'dBFS'
+                        }
+                    },
+                    x: {
+                        display: false
+                    }
+                },
+                animation: {
+                    duration: 0
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        enabled: false
+                    }
+                }
+            }
+        });
+        
+        // Initialize chart with empty data
+        for (let i = 0; i < config.maxDataPoints; i++) {
+            chart.data.datasets[0].data.push(null);
+        }
+        chart.update();
+        
+        // Update chart with new data point
+        function updateChart(value) {
+            // Shift all data points left
+            chart.data.datasets[0].data.shift();
+            // Add new data point
+            chart.data.datasets[0].data.push(value);
+            // Update chart
+            chart.update('none');
+        }
+        
+        // Update level meter
+        function updateLevelMeter(dbValue) {
+            // Calculate percentage (0-100) based on dB range
+            const percent = Math.min(100, Math.max(0, 
+                ((dbValue - config.dbRange.min) / (config.dbRange.max - config.dbRange.min)) * 100
+            ));
+            
+            // Update level meter
+            levelFill.style.width = `${percent}%`;
+            
+            // Change color based on level (green to red)
+            const hue = (1 - percent / 100) * 120; // 0 (red) to 120 (green)
+            levelFill.style.background = `hsl(${hue}, 75%, 50%)`;
+            
+            // Update text
+            levelText.textContent = `${dbValue.toFixed(1)} dBFS`;
+        }
+        
+        // Connect to WebSocket
+        function connect() {
+            if (isConnected) return;
+            
+            socket = new WebSocket(config.wsUrl);
+            
+            socket.onopen = () => {
+                console.log('WebSocket connected');
+                isConnected = true;
+                statusElement.textContent = 'Status: Connected';
+                statusElement.className = 'status connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+            };
+            
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    const dbValue = data.db;
+                    
+                    // Update UI
+                    updateLevelMeter(dbValue);
+                    updateChart(dbValue);
+                    
+                } catch (error) {
+                    console.error('Error parsing message:', error);
+                }
+            };
+            
+            socket.onclose = () => {
+                console.log('WebSocket disconnected');
+                isConnected = false;
+                statusElement.textContent = 'Status: Disconnected';
+                statusElement.className = 'status disconnected';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                
+                // Reset level meter
+                levelFill.style.width = '0%';
+                levelText.textContent = '-∞ dBFS';
+            };
+            
+            socket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                statusElement.textContent = 'Status: Error - Check console';
+                statusElement.className = 'status disconnected';
+            };
+        }
+        
+        // Disconnect from WebSocket
+        function disconnect() {
+            if (socket) {
+                socket.close();
+            }
+        }
+        
+        // Event listeners
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+        
+        // Auto-connect on page load if running locally
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            connect();
+        }
+    </script>
+</body>
+</html>
