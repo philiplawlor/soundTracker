@@ -19,19 +19,65 @@ SoundTracker is an application for tracking and analyzing sounds you make throug
 
 ## Backend Setup
 
-1. Open a terminal in the `backend` directory.
+### Option 1: Using Docker (Recommended)
+
+1. Make sure Docker is installed on your system
+2. Navigate to the project root directory
+3. Build and start the container:
+   ```bash
+   docker compose up --build
+   ```
+4. The backend will be available at `http://localhost:8001`
+
+### Option 2: Local Development
+
+1. Open a terminal in the `backend` directory
 2. Create a Python virtual environment:
    - Windows: `python -m venv venv`
    - Linux/Mac/WSL: `python3 -m venv venv`
 3. Activate the virtual environment:
-   - Windows: `./venv/Scripts/Activate`
+   - Windows: `.\venv\Scripts\activate`
    - Linux/Mac/WSL: `source venv/bin/activate`
 4. Install dependencies:
    - `pip install -r requirements.txt`
-5. Copy `.env.sample` to `.env` and adjust as needed (never commit secrets).
-6. Run the backend:
+5. Install the package in development mode:
+   - `pip install -e .`
+6. Copy `.env.sample` to `.env` and adjust as needed (never commit secrets)
+7. Run the backend:
    - Windows: `run_backend.bat`
    - Linux/Mac/WSL: `bash run_backend.sh`
+
+## AI Sound Classification
+
+The backend includes AI-powered sound classification using TensorFlow and the YamNet model. The following endpoints are available:
+
+### POST /ai/identify
+Identify sounds in an audio file (WAV format).
+
+**Request:**
+```
+curl -X POST -F "file=@sound.wav" http://localhost:8001/ai/identify
+```
+
+**Response:**
+```json
+{
+  "filename": "sound.wav",
+  "sample_rate": 16000,
+  "duration_seconds": 3.0,
+  "detections": [
+    {
+      "label": "Speech",
+      "score": 0.85,
+      "start_time": 0.0,
+      "end_time": 3.0
+    }
+  ]
+}
+```
+
+### WebSocket /ws/classify
+Real-time audio classification via WebSocket. Send audio chunks and receive classification results in real-time.
 
 ## API Documentation
 

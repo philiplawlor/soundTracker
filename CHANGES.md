@@ -1,5 +1,15 @@
 # CHANGES.md - SoundTracker
 
+## [0.4.0] - 2025-06-11 (Unreleased)
+- Added TensorFlow-based sound classification AI model
+- Integrated YamNet model for sound classification
+- Added new endpoints for AI sound identification and classification
+- Implemented WebSocket support for real-time audio classification
+- Updated Dockerfile with Python 3.11 and all required dependencies
+- Added TensorFlow, TensorFlow Hub, and audio processing libraries
+- Fixed dependency conflicts and build issues
+- Improved error handling and logging
+
 ## [0.4.0] - 2025-06-11
 - Fixed WebSocket endpoint for real-time audio device listing and monitoring
 - Added detailed logging for WebSocket connections and message handling
