@@ -1,6 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from ..ai import identify_sound
-from ..schemas import AISoundIdentifyResponse
+from ai import identify_sound
+from schemas import AISoundIdentifyResponse
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 

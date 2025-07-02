@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-from ..database import get_session
-from ..models import SoundEvent
-from ..schemas import SoundEventCreate, SoundEventRead
+from database import get_session
+from models import SoundEvent
+from schemas import SoundEventCreate, SoundEventRead
 from typing import List
 
 router = APIRouter(prefix="/sound-events", tags=["Sound Events"])
