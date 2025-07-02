@@ -1,14 +1,40 @@
-from fastapi import FastAPI, HTTPException
+import os
+import sys 
+from pathlib import Path
+from typing import Dict, Any
+
+from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
-from typing import Dict, Any
-import uvicorn
-import os
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
-from database import create_db_and_tables
-from routers.sound_event import router as sound_event_router
-from routers.ai import router as ai_router
+# Local imports
+try:
+    from database import create_db_and_tables
+    from routers.sound_event import router as sound_event_router
+    from routers.ai import router as ai_router
+    from config import settings
+except ImportError:
+    # Try relative import if absolute import fails
+    from .database import create_db_and_tables
+    from .routers.sound_event import router as sound_event_router
+    from .routers.ai import router as ai_router
+    from .config import settings
+
+# Import audio_capture if it exists
+try:
+    from routers import audio_capture
+except ImportError:
+    audio_capture = None
+
+# Get the base directory
+BASE_DIR = Path(__file__).parent
+STATIC_DIR = BASE_DIR / "static"
+
+# Create necessary directories
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
 # Initialize FastAPI app with metadata
 app = FastAPI(
@@ -19,31 +45,44 @@ app = FastAPI(
     redoc_url=None
 )
 
+# Mount static files
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=settings.CORS_ORIGINS.split(",") if hasattr(settings, 'CORS_ORIGINS') and settings.CORS_ORIGINS != "*" else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers with prefixes
-app.include_router(sound_event_router, prefix="/api/v1/sounds", tags=["Sound Events"])
-app.include_router(ai_router, prefix="/api/v1/ai", tags=["AI"])
+# Include API routers with v1 prefix
+api_router = APIRouter(prefix="/api/v1")
+api_router.include_router(sound_event_router, prefix="/sounds", tags=["Sound Events"])
+api_router.include_router(ai_router, prefix="/ai", tags=["AI"])
+
+# Include WebSocket router at the root level
+if audio_capture and hasattr(audio_capture, 'ws_router'):
+    app.include_router(audio_capture.ws_router)
+
+# Include the API router
+app.include_router(api_router)
 
 # Root endpoint
-@app.get("/", include_in_schema=False)
-async def root() -> Dict[str, str]:
-    """Root endpoint with welcome message and API information."""
-    return {
-        "message": "Welcome to SoundTracker API",
-        "status": "running",
-        "docs": "/docs",
-        "redoc": "/redoc"
-    }
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def root():
+    """Serve the main application page."""
+    try:
+        with open(os.path.join(STATIC_DIR, "audio_monitor.html"), "r") as f:
+            return HTMLResponse(content=f.read(), media_type="text/html")
+    except FileNotFoundError:
+        return HTMLResponse(
+            content="""<html><head><title>SoundTracker API</title></head><body><h1>SoundTracker Backend</h1><p>Welcome to the SoundTracker API.</p><p>API Documentation: <a href="/docs">Swagger UI</a></p><p>Health Check: <a href="/health">/health</a></p></body></html>""",
+            media_type="text/html"
+        )
 
-# Custom docs endpoints
+# API Documentation endpoints
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():
     """Serve custom Swagger UI with dark theme."""
@@ -80,12 +119,42 @@ async def health_check() -> Dict[str, str]:
     """Health check endpoint for monitoring."""
     return {"status": "healthy"}
 
+# Audio test page endpoint
+@app.get("/audio-test", response_class=HTMLResponse, include_in_schema=False)
+async def audio_test():
+    """Serve the audio test page."""
+    try:
+        with open(os.path.join(STATIC_DIR, "audio_test.html"), "r") as f:
+            return HTMLResponse(content=f.read(), media_type="text/html")
+    except FileNotFoundError:
+        return HTMLResponse(
+            content="<h1>Audio Test Page Not Found</h1><p>The audio test page could not be found.</p>",
+            status_code=404,
+            media_type="text/html"
+        )
+
+# WebSocket test endpoint
+@app.websocket("/ws/test")
+async def websocket_test(websocket: WebSocket):
+    """Simple WebSocket test endpoint"""
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await websocket.send_text(f"Echo: {data}")
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+    finally:
+        await websocket.close()
+
 # Database initialization
 @app.on_event("startup")
 async def on_startup():
     """Initialize database and other resources on startup."""
     try:
         create_db_and_tables()
+        # Ensure static directory exists
+        os.makedirs(STATIC_DIR, exist_ok=True)
         print("✅ Database tables created successfully")
     except Exception as e:
         print(f"❌ Error initializing database: {e}")
@@ -101,3 +170,4 @@ if __name__ == "__main__":
         reload=True,
         log_level="info"
     )
+    # Static directory is already created at the top level
