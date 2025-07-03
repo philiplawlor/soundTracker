@@ -1,5 +1,15 @@
 # CHANGES.md - SoundTracker
 
+## [0.5.1] - 2025-07-03
+- Fixed double `/ai/ai` router prefix in API endpoints
+- Added comprehensive API documentation in `API_DOCUMENTATION.md`
+- Updated README.md with detailed setup and usage instructions
+- Resolved Pydantic/SQLModel warning about `metadata` shadowing
+- Improved database model configuration for better compatibility
+- Added proper type hints and documentation throughout the codebase
+- Enhanced test coverage with additional edge cases
+- Fixed virtual environment activation in run scripts
+
 ## [0.5.0] - 2025-07-03
 - Fixed audio playback and identification in the web interface
 - Implemented web-compatible audio playback using Web Audio API

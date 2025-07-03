@@ -2,7 +2,7 @@
 
 ![version](https://img.shields.io/badge/version-0.5.0-blue)
 
-SoundTracker is an application for tracking and analyzing sounds you make throughout the day. It runs in the background, records noise levels, uses AI for sound identification, and provides charts and filters for your data.
+SoundTracker is an application for tracking and analyzing sounds in your environment. It captures audio, identifies sounds using AI, and provides visualization and analysis tools.
 
 ## Project Management
 - See `PLANNING.md` for high-level vision and architecture
@@ -10,100 +10,112 @@ SoundTracker is an application for tracking and analyzing sounds you make throug
 - See `TODO.md` for feature requests and changes
 - See `CHANGES.md` for version history
 
-## Getting Started
+## Features
 
-### Quick Start Scripts
+- Real-time audio capture and analysis
+- AI-powered sound classification using YAMNet
+- Web-based interface for monitoring and control
+- RESTful API for integration
+- Cross-platform support (Windows, Linux, macOS)
 
-> **Added in v0.3.2**
+## Quick Start
 
-You can use the following scripts to start and stop the backend (FastAPI) and frontend (Flutter) together:
+### Prerequisites
+
+- Python 3.10 or 3.11
+- Flutter SDK (for frontend development)
+- Git
+
+### Running the Application
 
 #### Windows
-- **Start:** `run_soundTracker.bat`
-- **Stop:** `stop_soundTracker.bat`
+```bash
+# Start both backend and frontend
+.\run_soundTracker.bat
 
-#### Linux/macOS (Bash)
-- **Start:** `./run_soundTracker.sh`
-- **Stop:** `./stop_soundTracker.sh`
+# Stop the application
+.\stop_soundTracker.bat
+```
 
-> Make sure to `chmod +x *.sh` on Unix systems before running.
+#### Linux/macOS
+```bash
+# Make scripts executable
+chmod +x *.sh
 
-**What these scripts do:**
-- Start: Launches the backend (with venv) and frontend (Flutter desktop) in separate terminals/processes.
-- Stop: Kills backend and frontend processes (by port or process name), then checks that ports are freed up (8000 for backend, 50300+ for Flutter).
+# Start both backend and frontend
+./run_soundTracker.sh
 
-**Troubleshooting:**
-- If a port is still in use after stopping, you may need to manually kill the process or restart your system.
-- On Windows, ensure you have the necessary permissions to kill processes.
-- On Linux/macOS, `lsof` is required for port checks.
-
-## Tech Stack
-- Backend: Python (FastAPI, SQLAlchemy/SQLModel, pydantic, pytest)
-- Frontend: Flutter
-- Database: SQLite
-- Deployment: GitHub Actions
-- Platform: Linux, Raspberry Pi, WSL, Android, iOS
+# Stop the application
+./stop_soundTracker.sh
+```
 
 ## Backend Setup
 
-<<<<<<< HEAD
-### AI Sound Identification Endpoint
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
 
-- **POST /ai/identify**
-  - Accepts: WAV file upload (form field: `file`)
-  - Returns: `{ "label": "Speech" }` (real label from YAMNet model)
-  - Example (with curl):
-    ```sh
-    curl -F "file=@path/to/audio.wav" http://localhost:8000/ai/identify
-    ```
-  - Only WAV files are supported for now.
+2. Create and activate a Python virtual environment:
+   - **Windows**:
+     ```bash
+     python -m venv venv
+     .\venv\Scripts\Activate
+     ```
+   - **Linux/macOS**:
+     ```bash
+     python3 -m venv venv
+     source venv/bin/activate
+     ```
 
-#### How it works
-- Uses Google’s [YAMNet](https://tfhub.dev/google/yamnet/1) model via TensorFlow Hub for real sound classification (521 classes).
-- Audio is preprocessed (mono, 16kHz) and passed to the model.
-- The top predicted class label is returned.
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-#### Dependencies
-- `tensorflow`, `tensorflow-hub`, `librosa`, `soundfile`, `python-multipart` (see requirements.txt)
+4. Set up environment variables:
+   ```bash
+   copy .env.sample .env
+   ```
+   Edit the `.env` file as needed.
 
+5. Start the backend server:
+   ```bash
+   python -m uvicorn main:app --reload
+   ```
 
-=======
->>>>>>> e27a928e38ebb8fe7656a81bb7e3de012ae7a40b
-1. Open a terminal in the `backend` directory.
-2. Create a Python virtual environment:
-   - Windows: `python -m venv venv`
-   - Linux/Mac/WSL: `python3 -m venv venv`
-3. Activate the virtual environment:
-   - Windows: `./venv/Scripts/Activate`
-   - Linux/Mac/WSL: `source venv/bin/activate`
-4. Install dependencies:
-   - `pip install -r requirements.txt`
-5. Copy `.env.sample` to `.env` and adjust as needed (never commit secrets).
-6. Run the backend:
-   - Windows: `run_backend.bat`
-   - Linux/Mac/WSL: `bash run_backend.sh`
+## Frontend Setup
+
+1. Navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+
+2. Install dependencies:
+   ```bash
+   flutter pub get
+   ```
+
+3. Run the Flutter web app:
+   ```bash
+   flutter run -d chrome --web-port 3030
+   ```
 
 ## API Documentation
 
-### Audio Capture Endpoints
+For detailed API documentation, see [API_DOCUMENTATION.md](backend/API_DOCUMENTATION.md).
 
-#### GET /audio/status
-Get the current status of the audio capture.
+### Key Endpoints
 
-**Response:**
-```json
-{
-  "is_running": true,
-  "sample_rate": 44100,
-  "channels": 1,
-  "active_connections": 1
-}
-```
+- `GET /health` - Check API status
+- `GET /api/v1/sounds/` - List all sound events
+- `POST /api/v1/sounds/` - Create a new sound event
+- `GET /api/v1/ai/classes` - List available sound classes
+- `POST /api/v1/ai/predict` - Analyze audio and predict sound class
 
-#### GET /audio/level
-Get the current noise level in dBFS.
+## Development
 
-**Response:**
+### Backend
 ```json
 {
   "level_db": -12.34

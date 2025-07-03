@@ -57,7 +57,8 @@ app.add_middleware(
 # Include API routers with v1 prefix
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(sound_event_router, prefix="/sounds", tags=["Sound Events"])
-api_router.include_router(ai_router, prefix="/ai", tags=["AI"])
+# The AI router already has its own /ai prefix
+api_router.include_router(ai_router, tags=["AI"])
 
 # Include WebSocket router at the root level
 if audio_capture and hasattr(audio_capture, 'ws_router'):
