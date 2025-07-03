@@ -120,10 +120,12 @@ class _SoundIdentifyScreenState extends State<SoundIdentifyScreen> {
             debugPrint('Web platform detected, processing blob URL...');
             
             // On web, the path is actually a blob URL
-            final blobUrl = path;
+            if (path == null) {
+              throw Exception('Recording failed: No audio data received');
+            }
             
             // Fetch the audio data from the blob URL
-            final audioData = await _fetchAudioFromBlob(blobUrl);
+            final audioData = await _fetchAudioFromBlob(path);
             
             // Create a WAV file header for the raw audio data
             // Note: This is a simplified version - in a real app, you'd want to properly

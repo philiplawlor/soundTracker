@@ -87,8 +87,8 @@ if %ERRORLEVEL% NEQ 0 (
 
 cd /d %~dp0
 
-REM Start Flutter frontend (Web on port 3030)
-start "Frontend" cmd /k "cd /d %~dp0frontend && flutter run -d chrome --web-port=3030"
+REM Start Flutter frontend in a new command window on port 3030
+start "Flutter Frontend" cmd /c "cd frontend && flutter run -d chrome --web-port 3030"
 
 echo SoundTracker is starting...
 echo Backend: http://localhost:8000
