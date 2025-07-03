@@ -1,53 +1,51 @@
 """
-AI Router for SoundTracker
-
-This module provides endpoints for sound classification using the YAMNet model.
+Simplified version of the main FastAPI application for debugging.
 """
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from fastapi.responses import JSONResponse
-from typing import List, Optional, Dict, Any
 import logging
+import sys
+from fastapi import FastAPI, Request, Depends, HTTPException, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+from sqlmodel import SQLModel, create_engine, Session
+from typing import Generator, Optional, Dict, Any
 import os
-import io
 import numpy as np
 import tensorflow as tf
 import tensorflow_hub as hub
 import librosa
 import requests
 import csv
+import io
 from pydantic import BaseModel
+from typing import List, Optional
 
-# Set up logging
+# Database configuration
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test_soundtracker.db")
+engine = create_engine(DATABASE_URL, echo=True)
+
+def create_db_and_tables():
+    SQLModel.metadata.create_all(engine)
+
+def get_session() -> Generator[Session, None, None]:
+    with Session(engine) as session:
+        yield session
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/ai", tags=["AI"])
-
-# Response models
-class AudioPredictionResult(BaseModel):
-    class_name: str
-    confidence: float
-    class_id: int
-
-class AudioPredictionResponse(BaseModel):
-    success: bool
-    predictions: List[AudioPredictionResult]
-    error: Optional[str] = None
-
-class SoundClass(BaseModel):
-    id: int
-    name: str
-
-class SoundClassesResponse(BaseModel):
-    count: int
-    classes: List[SoundClass]
-
 # AI Model Configuration
-class AIModelConfig:
-    def __init__(self):
-        self.yamnet_model_url = "https://tfhub.dev/google/yamnet/1"
-        self.yamnet_labels_url = "https://raw.githubusercontent.com/tensorflow/models/master/research/audioset/yamnet/yamnet_class_map.csv"
-        self.labels_path = "yamnet_class_map.csv"
-        self.tf_hub_cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "tfhub_modules")
+class AIModelConfig(BaseModel):
+    yamnet_model_url: str = "https://tfhub.dev/google/yamnet/1"
+    yamnet_labels_url: str = "https://raw.githubusercontent.com/tensorflow/models/master/research/audioset/yamnet/yamnet_class_map.csv"
+    labels_path: str = "yamnet_class_map.csv"
+    tf_hub_cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache", "tfhub_modules")
 
 class AIModel:
     def __init__(self, config: AIModelConfig):
@@ -123,17 +121,64 @@ class AIModel:
             logger.error(f"Error during prediction: {e}", exc_info=True)
             return {"error": "Prediction failed", "details": str(e)}
 
-# Initialize the AI model
+# Initialize config and model
 ai_config = AIModelConfig()
 ai_model = AIModel(ai_config)
 
-@router.on_event("startup")
-async def startup_event():
-    # Initialize the AI model when the application starts
+app = FastAPI()
+
+# Initialize database and AI model
+@app.on_event("startup")
+def on_startup():
+    logger.info("Creating database tables...")
+    create_db_and_tables()
+    logger.info("Database tables created")
+    
+    # Initialize AI model
+    logger.info("Initializing AI components...")
     if not ai_model.initialize():
         logger.error("Failed to initialize AI model. Some features may not work.")
 
-@router.get("/status")
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Add middleware to log all requests
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"Request: {request.method} {request.url}")
+    try:
+        response = await call_next(request)
+        return response
+    except Exception as e:
+        logger.error(f"Error processing request: {e}", exc_info=True)
+        raise
+
+@app.get("/")
+async def read_root():
+    logger.info("Root endpoint called")
+    return {
+        "message": "SoundTracker Backend",
+        "status": "running",
+        "ai_initialized": ai_model.initialized,
+        "ai_error": ai_model.error if not ai_model.initialized else None
+    }
+
+@app.get("/health")
+async def health_check():
+    logger.info("Health check endpoint called")
+    return {
+        "status": "healthy",
+        "database": "ok",
+        "ai_model": "initialized" if ai_model.initialized else f"error: {ai_model.error}"
+    }
+
+@app.get("/ai/status")
 async def ai_status():
     """Check the status of the AI model."""
     return {
@@ -146,21 +191,17 @@ async def ai_status():
         }
     }
 
-@router.get("/classes", response_model=SoundClassesResponse)
-async def list_sound_classes():
-    """List all available sound classes that the model can recognize."""
-    if not ai_model.initialized or not ai_model.class_labels:
-        raise HTTPException(
-            status_code=503,
-            detail="AI model is not initialized or class labels are not loaded."
-        )
-    
-    return {
-        "count": len(ai_model.class_labels),
-        "classes": [{"id": i, "name": name} for i, name in enumerate(ai_model.class_labels)]
-    }
+class AudioPredictionResult(BaseModel):
+    class_name: str
+    confidence: float
+    class_id: int
 
-@router.post("/predict", response_model=AudioPredictionResponse)
+class AudioPredictionResponse(BaseModel):
+    success: bool
+    predictions: List[AudioPredictionResult]
+    error: Optional[str] = None
+
+@app.post("/ai/predict", response_model=AudioPredictionResponse)
 async def predict_audio(file: UploadFile = File(...)):
     """
     Process an audio file and return sound classification predictions.
@@ -213,11 +254,32 @@ async def predict_audio(file: UploadFile = File(...)):
             detail=f"Error processing audio file: {str(e)}"
         )
 
-# For backward compatibility
-@router.post("/identify")
-async def identify_endpoint(file: UploadFile = File(...)):
-    """Legacy endpoint for backward compatibility."""
-    response = await predict_audio(file)
-    if response.success and response.predictions:
-        return {"label": response.predictions[0].class_name}
-    return {"error": response.error or "Failed to identify sound"}
+# Add a test endpoint to list available sound classes
+@app.get("/ai/classes")
+async def list_sound_classes():
+    """List all available sound classes that the model can recognize."""
+    if not ai_model.initialized or not ai_model.class_labels:
+        raise HTTPException(
+            status_code=503,
+            detail="AI model is not initialized or class labels are not loaded."
+        )
+    
+    return {
+        "count": len(ai_model.class_labels),
+        "classes": [{"id": i, "name": name} for i, name in enumerate(ai_model.class_labels)]
+    }
+
+if __name__ == "__main__":
+    logger.info("Starting simplified main app on http://0.0.0.0:8000")
+    try:
+        uvicorn.run(
+            "test_main:app",
+            host="0.0.0.0",
+            port=8000,
+            reload=True,
+            log_level="info",
+            access_log=True,
+            workers=1
+        )
+    except Exception as e:
+        logger.error(f"Failed to start server: {e}", exc_info=True)

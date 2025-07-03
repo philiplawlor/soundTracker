@@ -3,25 +3,22 @@ import sys
 from pathlib import Path
 from typing import Dict, Any
 
-from fastapi import FastAPI, HTTPException, WebSocket
+from fastapi import FastAPI, HTTPException, WebSocket, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+# Add the backend directory to the Python path
+BACKEND_DIR = Path(__file__).parent.absolute()
+sys.path.append(str(BACKEND_DIR))
+
 # Local imports
-try:
-    from database import create_db_and_tables
-    from routers.sound_event import router as sound_event_router
-    from routers.ai import router as ai_router
-    from config import settings
-except ImportError:
-    # Try relative import if absolute import fails
-    from .database import create_db_and_tables
-    from .routers.sound_event import router as sound_event_router
-    from .routers.ai import router as ai_router
-    from .config import settings
+from database import create_db_and_tables
+from routers.sound_event import router as sound_event_router
+from routers.ai import router as ai_router
+from config import settings
 
 # Import audio_capture if it exists
 try:
@@ -160,6 +157,28 @@ async def on_startup():
         print(f"❌ Error initializing database: {e}")
         raise
 
+# Debug endpoint to list all routes
+@app.get("/debug/routes", include_in_schema=False)
+async def list_routes():
+    """List all registered routes for debugging."""
+    routes = []
+    for route in app.routes:
+        if hasattr(route, "path"):
+            path = route.path
+            methods = []
+            if hasattr(route, "methods"):
+                methods = list(route.methods or [])
+            elif hasattr(route, "endpoint") and hasattr(route.endpoint, "methods"):
+                methods = list(route.endpoint.methods or [])
+            
+            routes.append({
+                "path": path,
+                "methods": methods,
+                "name": getattr(route, "name", str(route))
+            })
+    
+    return {"routes": routes}
+
 # For local development
 if __name__ == "__main__":
     import uvicorn
@@ -168,6 +187,6 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=True,
-        log_level="info"
+        log_level="debug"
     )
     # Static directory is already created at the top level

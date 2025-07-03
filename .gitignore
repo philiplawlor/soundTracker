@@ -38,6 +38,12 @@ venv*/**
 *~
 .DS_Store
 
+# Audio files
+*.wav
+*.mp3
+*.ogg
+*.aac
+
 # Flutter/Dart
 **/doc/api/
 **/ios/Flutter/.last_build_id

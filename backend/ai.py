@@ -14,9 +14,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # YAMNet TF Hub URL and class map URL
-YAMNET_MODEL_URL = "https://tfhub.dev/google/yamnet/1"
+# Using a specific version of the model that's known to work
+YAMNET_MODEL_URL = "https://tfhub.dev/google/yamnet/1"  # Using the standard version instead of tf2/1
 YAMNET_LABELS_URL = "https://raw.githubusercontent.com/tensorflow/models/master/research/audioset/yamnet/yamnet_class_map.csv"
 LABELS_PATH = "yamnet_class_map.csv"
+
+# Set TF Hub cache directory to a local path
+tf_hub_cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "tfhub_modules")
+os.makedirs(tf_hub_cache_dir, exist_ok=True)
+os.environ["TFHUB_CACHE_DIR"] = tf_hub_cache_dir
 
 # Global variables for model and labels
 yamnet_model = None
@@ -53,21 +59,39 @@ def load_model() -> None:
     
     try:
         # Download labels first
+        logger.info("Downloading YAMNet labels...")
         download_labels()
         CLASS_LABELS = load_labels(LABELS_PATH)
+        logger.info(f"Loaded {len(CLASS_LABELS)} YAMNet class labels")
         
         # Load model with explicit error handling
-        logger.info("Loading YAMNet model from TensorFlow Hub...")
+        logger.info(f"Loading YAMNet model from {YAMNET_MODEL_URL}...")
+        
+        # Clear any existing TF session and set memory growth
+        tf.keras.backend.clear_session()
+        physical_devices = tf.config.list_physical_devices('GPU')
+        if physical_devices:
+            try:
+                tf.config.experimental.set_memory_growth(physical_devices[0], True)
+                logger.info("Enabled memory growth on GPU")
+            except Exception as e:
+                logger.warning(f"Could not enable memory growth on GPU: {e}")
+        
+        # Load model with custom options
         yamnet_model = hub.load(YAMNET_MODEL_URL)
         logger.info("Successfully loaded YAMNet model")
         
         # Test model with dummy data
+        logger.info("Running test inference...")
         test_waveform = np.zeros((16000,), dtype=np.float32)
-        _ = yamnet_model(test_waveform)
-        logger.info("YAMNet model test inference successful")
+        scores, embeddings, spectrogram = yamnet_model(test_waveform)
+        logger.info(f"YAMNet model test inference successful. Output shapes - scores: {scores.shape}, embeddings: {embeddings.shape}, spectrogram: {spectrogram.shape}")
         
     except Exception as e:
-        logger.error(f"Error loading YAMNet model: {e}")
+        logger.error(f"Error loading YAMNet model: {str(e)}", exc_info=True)
+        logger.error(f"TF Hub URL: {YAMNET_MODEL_URL}")
+        logger.error("Make sure you have a stable internet connection and the model URL is accessible.")
+        logger.error("If the issue persists, try clearing the TF Hub cache at %LOCALAPPDATA%\temp\tfhub_modules")
         raise
 
 # Initialize model and labels on import

@@ -6,6 +6,7 @@ Track feature requests, improvements, and ideas here. Strikethrough items when d
 - [x] ~~Listen to the sound of the microphone~~ (v0.2.0)
 - [x] ~~Record the average noise level~~ (v0.2.0)
 - [x] ~~Use AI to identify the sound and record the description~~ (v0.3.0)
+- [x] ~~Fix web audio playback and identification~~ (v0.5.0)
 - [ ] Save the data to a database
 - [ ] Create a chart of the noise level
 - [ ] Create a chart of the sound identification

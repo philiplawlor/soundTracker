@@ -1,5 +1,13 @@
 # CHANGES.md - SoundTracker
 
+## [0.5.0] - 2025-07-03
+- Fixed audio playback and identification in the web interface
+- Implemented web-compatible audio playback using Web Audio API
+- Resolved 404 errors in the identify sound endpoint
+- Added debug endpoints for troubleshooting
+- Improved error handling and logging
+- Updated documentation and dependencies
+
 ## [0.4.0] - 2025-06-11
 - Fixed WebSocket endpoint for real-time audio device listing and monitoring
 - Added detailed logging for WebSocket connections and message handling

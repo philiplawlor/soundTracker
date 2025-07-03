@@ -1,8 +1,15 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:convert';
+import 'dart:html' as html;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 
 void main() {
   runApp(const SoundTrackerApp());
@@ -35,7 +42,9 @@ class SoundIdentifyScreen extends StatefulWidget {
 }
 
 class _SoundIdentifyScreenState extends State<SoundIdentifyScreen> {
-  File? _audioFile;
+  // Store file data in a platform-agnostic way
+  Uint8List? _audioData;
+  String? _audioFileName;
   String? _label;
   bool _loading = false;
   String? _error;
@@ -43,40 +52,308 @@ class _SoundIdentifyScreenState extends State<SoundIdentifyScreen> {
 
   /// Pick a WAV file from device.
   Future<void> _pickFile() async {
-    setState(() { _error = null; });
-    final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['wav']);
-    if (result != null && result.files.single.path != null) {
-      setState(() { _audioFile = File(result.files.single.path!); });
+    try {
+      setState(() {
+        _error = null;
+        _loading = true;
+      });
+      
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['wav'],
+        withData: true,  // Get file bytes for web compatibility
+      );
+
+      if (result == null) {
+        // User canceled the picker
+        return;
+      }
+
+      final file = result.files.single;
+      
+      // Check file size (e.g., 10MB limit)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        throw Exception('File is too large. Maximum size is 10MB');
+      }
+
+      // Store the file data in memory
+      if (file.bytes == null) {
+        throw Exception('Failed to read file data');
+      }
+
+      setState(() {
+        _audioData = file.bytes!;
+        _audioFileName = file.name;
+        _label = null; // Clear previous prediction
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Error selecting file: ${e.toString().replaceAll('Exception: ', '')}';
+      });
+      debugPrint('Error picking file: $e');
+    } finally {
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
+  /// Play audio on web using the Web Audio API
+  Future<void> _playAudioWeb(Uint8List audioData) async {
+    try {
+      debugPrint('Creating audio element for web playback');
+      
+      // Create an audio element
+      final audio = html.AudioElement()
+        ..src = ''
+        ..autoplay = true;
+      
+      // Create a blob URL from the audio data
+      final blob = html.Blob([audioData], 'audio/wav');
+      final url = html.Url.createObjectUrl(blob);
+      
+      // Set the source and play
+      audio.src = url;
+      
+      // Clean up when done
+      audio.onEnded.listen((_) {
+        html.Url.revokeObjectUrl(url);
+        if (mounted) {
+          setState(() {
+            _loading = false;
+          });
+        }
+      });
+      
+      // Handle errors
+      audio.onError.listen((event) {
+        debugPrint('Audio playback error: $event');
+        html.Url.revokeObjectUrl(url);
+        if (mounted) {
+          setState(() {
+            _error = 'Error playing audio';
+            _loading = false;
+          });
+        }
+      });
+      
+    } catch (e, stackTrace) {
+      debugPrint('Error in _playAudioWeb: $e');
+      debugPrint('Stack trace: $stackTrace');
+      if (mounted) {
+        setState(() {
+          _error = 'Error playing audio: ${e.toString()}';
+          _loading = false;
+        });
+      }
     }
   }
 
   /// Play the selected audio file.
   Future<void> _playAudio() async {
-    if (_audioFile == null) return;
-    await _audioPlayer.play(DeviceFileSource(_audioFile!.path));
+    if (_audioData == null || _audioData!.isEmpty) {
+      setState(() {
+        _error = 'No audio data available to play';
+      });
+      return;
+    }
+    
+    try {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+      
+      if (kIsWeb) {
+        // For web, use the Audio API directly
+        debugPrint('Playing audio on web');
+        await _playAudioWeb(_audioData!);
+      } else {
+        // For mobile/desktop, save to a temporary file and play
+        debugPrint('Playing audio from file (mobile/desktop)');
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File(path.join(tempDir.path, 'temp_audio_${DateTime.now().millisecondsSinceEpoch}.wav'));
+        await tempFile.writeAsBytes(_audioData!);
+        await _audioPlayer.stop();
+        await _audioPlayer.play(DeviceFileSource(tempFile.path));
+      }
+      
+    } catch (e, stackTrace) {
+      debugPrint('Error playing audio: $e');
+      debugPrint('Stack trace: $stackTrace');
+      
+      String errorMessage = 'Error playing audio';
+      if (e is UnimplementedError) {
+        errorMessage = 'Audio playback not supported on this platform';
+      } else {
+        errorMessage = 'Error: ${e.toString().replaceAll('Exception: ', '')}';
+      }
+      
+      if (mounted) {
+        setState(() {
+          _error = errorMessage;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
   }
 
-  /// Send audio to backend and get label.
+  /// Send audio to backend and get prediction results.
   Future<void> _identifySound() async {
-    if (_audioFile == null) return;
-    setState(() { _loading = true; _label = null; _error = null; });
-    try {
-      final uri = Uri.parse('http://localhost:8000/ai/identify');
-      final request = http.MultipartRequest('POST', uri)
-        ..files.add(await http.MultipartFile.fromPath('file', _audioFile!.path));
-      final response = await request.send();
-      final respStr = await response.stream.bytesToString();
-      if (response.statusCode == 200) {
-        final label = RegExp(r'"label"\s*:\s*"([^"]+)"').firstMatch(respStr)?.group(1);
-        setState(() { _label = label ?? 'Unknown'; });
-      } else {
-        setState(() { _error = 'Error: ${response.statusCode}'; });
-      }
-    } catch (e) {
-      setState(() { _error = 'Failed: $e'; });
-    } finally {
-      setState(() { _loading = false; });
+    if (_audioData == null || _audioData!.isEmpty) {
+      setState(() { 
+        _error = 'No audio data available to identify';
+      });
+      return;
     }
+    
+    setState(() { 
+      _loading = true; 
+      _label = null; 
+      _error = null; 
+    });
+    
+    try {
+      // Update the URI to match the backend route
+      final uri = Uri.parse('http://localhost:8000/api/v1/ai/ai/predict');
+      debugPrint('Sending request to: $uri');
+      
+      // Create a multipart request
+      final request = http.MultipartRequest('POST', uri);
+      
+      // Add the audio file
+      final multipartFile = http.MultipartFile.fromBytes(
+        'file',
+        _audioData!,
+        filename: _audioFileName ?? 'audio_${DateTime.now().millisecondsSinceEpoch}.wav',
+      );
+      
+      request.files.add(multipartFile);
+      
+      // Log request details
+      debugPrint('Sending audio data (${_audioData!.length} bytes) to server...');
+      
+      // Send the request with timeout
+      final completer = Completer<http.StreamedResponse>();
+      final timer = Timer(const Duration(seconds: 30), () {
+        if (!completer.isCompleted) {
+          completer.completeError('Request timed out after 30 seconds');
+        }
+      });
+      
+      try {
+        final streamedResponse = await request.send();
+        timer.cancel();
+        completer.complete(streamedResponse);
+      } catch (e) {
+        timer.cancel();
+        rethrow;
+      }
+      
+      // Get the response
+      final response = await http.Response.fromStream(await completer.future);
+      debugPrint('Response status: ${response.statusCode}');
+      debugPrint('Response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        try {
+          // Parse the JSON response
+          final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+          
+          if (responseData['success'] == true) {
+            if (responseData['predictions'] != null && 
+                (responseData['predictions'] as List).isNotEmpty) {
+              // Get the first prediction (most confident)
+              final prediction = (responseData['predictions'] as List).first;
+              final className = prediction['class_name']?.toString() ?? 'Unknown';
+              final confidence = prediction['confidence'] != null 
+                  ? (double.tryParse(prediction['confidence'].toString()) ?? 0) * 100 
+                  : 0.0;
+                  
+              setState(() { 
+                _label = '$className (${confidence.toStringAsFixed(1)}% confidence)';
+              });
+            } else {
+              setState(() { 
+                _error = 'No predictions returned from the server';
+              });
+            }
+          } else {
+            final errorMsg = responseData['error']?.toString() ?? 'Unknown server error';
+            setState(() { 
+              _error = 'Server error: $errorMsg';
+            });
+          }
+        } catch (e) {
+          debugPrint('Error parsing response: $e');
+          setState(() {
+            _error = 'Error parsing server response: ${e.toString()}';
+          });
+        }
+      } else {
+        // Try to parse error message from response
+        try {
+          final errorData = jsonDecode(response.body) as Map<String, dynamic>;
+          final errorMsg = errorData['error']?.toString() ?? 'Unknown error occurred';
+          setState(() { 
+            _error = 'Error: $errorMsg (Status: ${response.statusCode})'; 
+          });
+        } catch (e) {
+          setState(() { 
+            _error = 'Error: ${response.statusCode} - ${response.reasonPhrase}';
+            if (response.body.isNotEmpty) {
+              _error = '${_error!}\nResponse: ${response.body}';
+            }
+          });
+        }
+      }
+    } on TimeoutException catch (e) {
+      setState(() { 
+        _error = 'Request timed out. Please try again.';
+      });
+      debugPrint('Request timed out: $e');
+    } on http.ClientException catch (e) {
+      setState(() { 
+        _error = 'Network error: ${e.message}';
+      });
+      debugPrint('HTTP client error: $e');
+    } on SocketException catch (e) {
+      setState(() { 
+        _error = 'Network error: Could not connect to the server. Please check your connection.';
+      });
+      debugPrint('Network error: $e');
+    } on http.ClientException catch (e) {
+      setState(() { 
+        _error = 'Network error: ${e.message}';
+      });
+      debugPrint('HTTP client error: $e');
+    } catch (e, stackTrace) {
+      debugPrint('Error in _identifySound: $e');
+      debugPrint('Stack trace: $stackTrace');
+      setState(() { 
+        _error = 'An error occurred: ${e.toString()}';
+      });
+    } finally {
+      if (mounted) {
+        setState(() { 
+          _loading = false; 
+        });
+      }
+    }
+  }
+
+  /// Builds the file info widget showing the selected file name
+  Widget _buildFileInfo() {
+    if (_audioData == null) {
+      return const Text('No file selected');
+    }
+    return Text('Selected: ${_audioFileName ?? 'audio.wav'}');
   }
 
   @override
@@ -97,8 +374,9 @@ class _SoundIdentifyScreenState extends State<SoundIdentifyScreen> {
                   onPressed: _pickFile,
                 ),
                 const SizedBox(height: 16),
-                if (_audioFile != null) ...[
-                  Text('Selected: ${_audioFile!.path.split(Platform.pathSeparator).last}'),
+                _buildFileInfo(),
+                if (_audioData != null) ...[
+                  const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -134,36 +412,6 @@ class _SoundIdentifyScreenState extends State<SoundIdentifyScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      // (Removed template code. SoundTracker UI only.)
     );
   }
 }

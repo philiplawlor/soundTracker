@@ -1,10 +1,6 @@
 # SoundTracker
 
-<<<<<<< HEAD
-![version](https://img.shields.io/badge/version-0.3.2-blue)
-=======
-![version](https://img.shields.io/badge/version-0.4.0-blue)
->>>>>>> e27a928e38ebb8fe7656a81bb7e3de012ae7a40b
+![version](https://img.shields.io/badge/version-0.5.0-blue)
 
 SoundTracker is an application for tracking and analyzing sounds you make throughout the day. It runs in the background, records noise levels, uses AI for sound identification, and provides charts and filters for your data.
 
