@@ -12,6 +12,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'services/api_service.dart';
 import 'services/audio_recorder_service.dart';
 import 'widgets/audio_waveform_painter.dart';
 
@@ -56,11 +57,16 @@ class _SoundIdentifyScreenState extends State<SoundIdentifyScreen> {
   String? _label;
   String? _error;
   bool _isLoading = false;
+  final ApiService _apiService = ApiService();
+  List<Map<String, dynamic>> _audioDevices = [];
+  int? _selectedDeviceId;
+  bool _isFetchingDevices = true;
   
   @override
   void initState() {
     super.initState();
     _initRecorder();
+    _fetchAudioDevices();
   }
   
   @override
@@ -76,6 +82,27 @@ class _SoundIdentifyScreenState extends State<SoundIdentifyScreen> {
     if (status != PermissionStatus.granted) {
       setState(() {
         _error = 'Microphone permission not granted';
+      });
+    }
+  }
+
+  Future<void> _fetchAudioDevices() async {
+    try {
+      final devices = await _apiService.getAudioDevices();
+      setState(() {
+        _audioDevices = devices;
+        // Find the default device by looking for 'default' in the name, or fall back to the first device.
+        final defaultDevice = devices.firstWhere(
+          (d) => d['name']?.toLowerCase().contains('default') ?? false,
+          orElse: () => devices.isNotEmpty ? devices.first : {'id': null},
+        );
+        _selectedDeviceId = defaultDevice['id'];
+        _isFetchingDevices = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = "Error fetching audio devices: $e";
+        _isFetchingDevices = false;
       });
     }
   }
@@ -170,7 +197,7 @@ class _SoundIdentifyScreenState extends State<SoundIdentifyScreen> {
         // Start a new recording
         debugPrint('Starting new recording...');
         try {
-          await _recorder.start();
+          await _recorder.start(deviceId: _selectedDeviceId);
           debugPrint('Recording started');
           setState(() {
             _error = null;
@@ -651,6 +678,35 @@ class _SoundIdentifyScreenState extends State<SoundIdentifyScreen> {
                 ),
               ),
             ),
+
+            const SizedBox(height: 24.0),
+
+            // Audio device selection dropdown
+            if (_isFetchingDevices)
+              const Center(child: CircularProgressIndicator())
+            else if (_audioDevices.isNotEmpty)
+              DropdownButtonFormField<int>(
+                value: _selectedDeviceId,
+                items: _audioDevices.map((device) {
+                  return DropdownMenuItem<int>(
+                    value: device['id'],
+                    child: Text(
+                      device['name'],
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+                onChanged: (int? newValue) {
+                  setState(() {
+                    _selectedDeviceId = newValue;
+                  });
+                },
+                decoration: const InputDecoration(
+                  labelText: 'Select Audio Device',
+                  border: OutlineInputBorder(),
+                  filled: true,
+                ),
+              ),
             
             const SizedBox(height: 24.0),
 
