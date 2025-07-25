@@ -1,6 +1,6 @@
 # SoundTracker
 
-![version](https://img.shields.io/badge/version-0.7.0-blue)
+![version](https://img.shields.io/badge/version-0.8.0-blue)
 
 SoundTracker is an application for tracking and analyzing sounds in your environment. It captures audio, identifies sounds using AI, and provides visualization and analysis tools.
 

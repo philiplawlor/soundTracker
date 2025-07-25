@@ -1,5 +1,10 @@
 # CHANGES.md - SoundTracker
 
+## [0.8.0] - 2025-07-25
+- **Fixed WebSocket Disconnection**: Resolved the root cause of the WebSocket errors by installing the `PyAudio` package, which provides the necessary system-level audio drivers for the `sounddevice` library to function correctly.
+- **Fixed Missing Audio Devices**: Corrected a critical bug in `main.py` where the API router for audio capture was not being included. This exposed the `/api/v1/audio/devices` endpoint, allowing the frontend to successfully fetch and display the list of available audio devices.
+- **Dependency Management**: Updated `requirements.txt` to include all necessary audio packages, ensuring a reproducible environment.
+
 ## [0.7.0] - 2025-07-25
 - **Major Project Restructure**: Migrated the backend application to a standard `src`-layout to resolve persistent `ModuleNotFoundError` issues and improve package structure.
 - **Fixed All Import Errors**: Corrected all local application imports to use relative paths (e.g., `from ..database import ...`), making the package structure robust.

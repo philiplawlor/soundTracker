@@ -56,6 +56,10 @@ api_router.include_router(sound_event_router, prefix="/sounds", tags=["Sound Eve
 # The AI router already has its own /ai prefix
 api_router.include_router(ai_router, tags=["AI"])
 
+# Include audio capture router if available
+if audio_capture and hasattr(audio_capture, 'router'):
+    api_router.include_router(audio_capture.router)
+
 # Include WebSocket router at the root level
 if audio_capture and hasattr(audio_capture, 'ws_router'):
     app.include_router(audio_capture.ws_router)
