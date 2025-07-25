@@ -74,3 +74,17 @@ class SoundEventCreate(SQLModel):
 class SoundEventRead(SoundEventBase):
     """Schema for reading sound event data (includes ID)."""
     id: int
+
+# --- Pydantic Models for AI API ---
+
+class Prediction(BaseModel):
+    """Schema for a single prediction from the AI model."""
+    class_name: str
+    confidence: float
+    class_id: int
+
+class AudioPredictionResponse(BaseModel):
+    """Schema for the response from the audio prediction endpoint."""
+    success: bool
+    predictions: Optional[List[Prediction]] = None
+    error: Optional[str] = None

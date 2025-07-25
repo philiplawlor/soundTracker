@@ -4,9 +4,9 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select, or_
 
-from database import get_session
-from models import SoundEvent, SoundType
-from schemas import SoundEventCreate, SoundEventRead
+from ..database import get_session
+from ..models import SoundEvent, SoundType
+from ..schemas import SoundEventCreate, SoundEventRead
 
 router = APIRouter(prefix="/sounds", tags=["Sound Events"])
 

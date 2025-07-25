@@ -14,8 +14,14 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from sqlmodel import Session
 from pydantic import BaseModel
 
-from backend.database import get_session
-from backend.models import SoundEvent, SoundEventCreate, SoundType
+from ..database import get_session
+from backend.models import (
+    SoundEvent,
+    SoundEventCreate,
+    SoundType,
+    Prediction,
+    AudioPredictionResponse,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -110,17 +116,7 @@ class AIModel:
             logger.error(f"Error during prediction: {e}", exc_info=True)
             return {"error": "Prediction failed", "details": str(e)}
 
-# --- Pydantic Models for API ---
 
-class Prediction(BaseModel):
-    class_name: str
-    confidence: float
-    class_id: int
-
-class AudioPredictionResponse(BaseModel):
-    success: bool
-    predictions: Optional[List[Prediction]] = None
-    error: Optional[str] = None
 
 # --- Dependency Injection ---
 
@@ -144,8 +140,10 @@ async def startup_event():
         logger.info("Startup event: Initializing AI model...")
         get_ai_model()
         logger.info("Startup event: AI model initialized successfully.")
-    except RuntimeError as e:
-        logger.error(f"FATAL: AI model could not be initialized on startup: {e}")
+    except Exception as e:
+        # Log the error but do not re-raise it to prevent the app from crashing.
+        # The endpoints will handle the uninitialized model gracefully.
+        logger.error(f"CRITICAL: AI model failed to initialize on startup: {e}", exc_info=True)
 
 @router.post("/predict", response_model=AudioPredictionResponse)
 async def predict_audio(

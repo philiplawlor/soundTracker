@@ -40,7 +40,7 @@ def create_db_and_tables() -> None:
     Create database tables based on SQLModel metadata.
     This should be called during application startup.
     """
-    SQLModel.metadata.create_all(engine)
+    SQLModel.metadata.create_all(engine, checkfirst=True)
 
 # SQLite specific optimizations
 if DATABASE_URL.startswith("sqlite"):

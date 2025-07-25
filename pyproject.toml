@@ -1,0 +1,8 @@
+[project]
+name = "soundtracker"
+version = "0.6.0"
+description = "SoundTracker AI Backend"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["backend"]

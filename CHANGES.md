@@ -1,5 +1,15 @@
 # CHANGES.md - SoundTracker
 
+## [0.7.0] - 2025-07-25
+- **Major Project Restructure**: Migrated the backend application to a standard `src`-layout to resolve persistent `ModuleNotFoundError` issues and improve package structure.
+- **Fixed All Import Errors**: Corrected all local application imports to use relative paths (e.g., `from ..database import ...`), making the package structure robust.
+- **Dependency and Environment Stabilization**:
+    - Rebuilt the virtual environment and generated a complete, accurate `requirements.txt` using `pip freeze`.
+    - Resolved missing dependencies (`pydantic-settings`, `websockets`) that were causing startup crashes.
+    - Fixed Pydantic `orm_mode` deprecation warning by updating it to `from_attributes`.
+- **Packaging and Installation**: Correctly configured `pyproject.toml` to support the `src`-layout and allow for a stable installation in editable mode (`pip install -e .`).
+- **Server Stability**: The backend server now launches reliably without import errors or dependency warnings.
+
 ## [0.6.0] - 2025-07-25
 - Stabilized the AI backend by resolving persistent test collection failures.
 - Rewrote AI tests to use a fully isolated FastAPI app instance, improving test reliability.

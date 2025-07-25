@@ -62,7 +62,7 @@ class SoundEventRead(SoundEventBase):
     timestamp: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class AISoundIdentifyResponse(BaseModel):
     """Response schema for AI sound identification."""

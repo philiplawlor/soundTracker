@@ -10,19 +10,15 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-# Add the backend directory to the Python path
-BACKEND_DIR = Path(__file__).parent.absolute()
-sys.path.append(str(BACKEND_DIR))
-
 # Local imports
-from database import create_db_and_tables
-from routers.sound_event import router as sound_event_router
-from routers.ai import router as ai_router
-from config import settings
+from .database import create_db_and_tables
+from .routers.sound_event import router as sound_event_router
+from .routers.ai import router as ai_router
+from .config import settings
 
 # Import audio_capture if it exists
 try:
-    from routers import audio_capture
+    from .routers import audio_capture
 except ImportError:
     audio_capture = None
 
@@ -155,8 +151,8 @@ async def on_startup():
         os.makedirs(STATIC_DIR, exist_ok=True)
         print("✅ Database tables created successfully")
     except Exception as e:
+        # Log the error but do not re-raise, to allow the app to start
         print(f"❌ Error initializing database: {e}")
-        raise
 
 # Debug endpoint to list all routes
 @app.get("/debug/routes", include_in_schema=False)
@@ -180,14 +176,3 @@ async def list_routes():
     
     return {"routes": routes}
 
-# For local development
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="debug"
-    )
-    # Static directory is already created at the top level
