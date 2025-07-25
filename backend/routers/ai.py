@@ -15,7 +15,7 @@ from sqlmodel import Session
 from pydantic import BaseModel
 
 from backend.database import get_session
-from backend.models import SoundEvent, SoundEventCreate
+from backend.models import SoundEvent, SoundEventCreate, SoundType
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
