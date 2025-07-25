@@ -60,6 +60,7 @@ class SoundEvent(SoundEventBase, table=True):
 # Pydantic model for creating events (without id)
 class SoundEventCreate(SQLModel):
     """Schema for creating a new sound event."""
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
     audio_file_path: Optional[str] = None
     sound_type: SoundType = SoundType.UNKNOWN
     confidence: float = 0.0

@@ -1,9 +1,7 @@
 import io
 import numpy as np
 import tensorflow as tf
-import tensorflow_hub as hub
 import librosa
-import requests
 import os
 import csv
 import logging
@@ -13,35 +11,17 @@ from typing import Optional
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# YAMNet TF Hub URL and class map URL
-# Using a specific version of the model that's known to work
-YAMNET_MODEL_URL = "https://tfhub.dev/google/yamnet/1"  # Using the standard version instead of tf2/1
-YAMNET_LABELS_URL = "https://raw.githubusercontent.com/tensorflow/models/master/research/audioset/yamnet/yamnet_class_map.csv"
-LABELS_PATH = "yamnet_class_map.csv"
+# Define base directory for the project
+# This assumes ai.py is in the 'backend' subdirectory
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Set TF Hub cache directory to a local path
-tf_hub_cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "tfhub_modules")
-os.makedirs(tf_hub_cache_dir, exist_ok=True)
-os.environ["TFHUB_CACHE_DIR"] = tf_hub_cache_dir
+# Paths for the local model and labels
+YAMNET_MODEL_PATH = os.path.join(BASE_DIR, "yamnet.h5")
+LABELS_PATH = os.path.join(BASE_DIR, "yamnet_class_map.csv")
 
 # Global variables for model and labels
 yamnet_model = None
 CLASS_LABELS = None
-
-# Download class map if not present
-def download_labels() -> None:
-    """Download YAMNet class map if it doesn't exist."""
-    try:
-        if not os.path.exists(LABELS_PATH):
-            logger.info("Downloading YAMNet class map...")
-            r = requests.get(YAMNET_LABELS_URL, timeout=10)
-            r.raise_for_status()
-            with open(LABELS_PATH, "wb") as f:
-                f.write(r.content)
-            logger.info("Successfully downloaded YAMNet class map")
-    except Exception as e:
-        logger.error(f"Error downloading YAMNet class map: {e}")
-        raise
 
 def load_labels(path: str) -> list[str]:
     """Load class labels from CSV file."""
@@ -54,44 +34,33 @@ def load_labels(path: str) -> list[str]:
         raise
 
 def load_model() -> None:
-    """Load YAMNet model from TensorFlow Hub."""
+    """Load YAMNet model from local .h5 file."""
     global yamnet_model, CLASS_LABELS
     
     try:
-        # Download labels first
-        logger.info("Downloading YAMNet labels...")
-        download_labels()
+        # Check if model and label files exist
+        if not os.path.exists(YAMNET_MODEL_PATH):
+            raise FileNotFoundError(f"YAMNet model not found at {YAMNET_MODEL_PATH}")
+        if not os.path.exists(LABELS_PATH):
+            raise FileNotFoundError(f"YAMNet class map not found at {LABELS_PATH}")
+
+        # Load labels
         CLASS_LABELS = load_labels(LABELS_PATH)
         logger.info(f"Loaded {len(CLASS_LABELS)} YAMNet class labels")
         
-        # Load model with explicit error handling
-        logger.info(f"Loading YAMNet model from {YAMNET_MODEL_URL}...")
-        
-        # Clear any existing TF session and set memory growth
-        tf.keras.backend.clear_session()
-        physical_devices = tf.config.list_physical_devices('GPU')
-        if physical_devices:
-            try:
-                tf.config.experimental.set_memory_growth(physical_devices[0], True)
-                logger.info("Enabled memory growth on GPU")
-            except Exception as e:
-                logger.warning(f"Could not enable memory growth on GPU: {e}")
-        
-        # Load model with custom options
-        yamnet_model = hub.load(YAMNET_MODEL_URL)
+        # Load model
+        logger.info(f"Loading YAMNet model from local path: {YAMNET_MODEL_PATH}...")
+        yamnet_model = tf.keras.models.load_model(YAMNET_MODEL_PATH)
         logger.info("Successfully loaded YAMNet model")
         
         # Test model with dummy data
         logger.info("Running test inference...")
-        test_waveform = np.zeros((16000,), dtype=np.float32)
+        test_waveform = np.zeros((1, 16000), dtype=np.float32)
         scores, embeddings, spectrogram = yamnet_model(test_waveform)
         logger.info(f"YAMNet model test inference successful. Output shapes - scores: {scores.shape}, embeddings: {embeddings.shape}, spectrogram: {spectrogram.shape}")
         
     except Exception as e:
-        logger.error(f"Error loading YAMNet model: {str(e)}", exc_info=True)
-        logger.error(f"TF Hub URL: {YAMNET_MODEL_URL}")
-        logger.error("Make sure you have a stable internet connection and the model URL is accessible.")
-        logger.error("If the issue persists, try clearing the TF Hub cache at %LOCALAPPDATA%\temp\tfhub_modules")
+        logger.error(f"Error loading local YAMNet model: {str(e)}", exc_info=True)
         raise
 
 # Initialize model and labels on import
@@ -99,7 +68,7 @@ try:
     load_model()
 except Exception as e:
     logger.error(f"Failed to initialize YAMNet model: {e}")
-    # Allow the app to start but model won't be available
+    # Allow the app to start, but model won't be available
 
 # YAMNet expects mono, 16kHz, float32 waveform
 def preprocess_audio(audio_bytes: bytes) -> np.ndarray:
@@ -148,7 +117,7 @@ def identify_sound(audio_data: bytes) -> Optional[str]:
         
         # Run inference
         scores, embeddings, spectrogram = yamnet_model(waveform)
-        mean_scores = np.mean(scores.numpy(), axis=0)
+        mean_scores = np.mean(scores, axis=0)
         top_idx = np.argmax(mean_scores)
         label = CLASS_LABELS[top_idx]
         

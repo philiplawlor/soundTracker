@@ -1,5 +1,12 @@
 # CHANGES.md - SoundTracker
 
+## [0.6.0] - 2025-07-25
+- Stabilized the AI backend by resolving persistent test collection failures.
+- Rewrote AI tests to use a fully isolated FastAPI app instance, improving test reliability.
+- Fixed Pydantic validation and data type errors in the `/ai/identify` endpoint.
+- Ensured AI model is loaded correctly via dependency injection, preventing startup conflicts.
+- Confirmed that AI sound classification results are now correctly saved to the database.
+
 ## [0.5.2] - 2025-07-03
 - Fixed audio recording on web platform
 - Resolved stream subscription errors in audio recorder
