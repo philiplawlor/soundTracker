@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:html' as html;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -12,9 +12,12 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:logging/logging.dart';
 import 'services/api_service.dart';
 import 'services/audio_recorder_service.dart';
 import 'widgets/audio_waveform_painter.dart';
+
+final _log = Logger('SoundIdentifyScreen');
 
 void main() {
   runApp(const SoundTrackerApp());
@@ -91,12 +94,24 @@ class _SoundIdentifyScreenState extends State<SoundIdentifyScreen> {
       final devices = await _apiService.getAudioDevices();
       setState(() {
         _audioDevices = devices;
-        // Find the default device by looking for 'default' in the name, or fall back to the first device.
-        final defaultDevice = devices.firstWhere(
-          (d) => d['name']?.toLowerCase().contains('default') ?? false,
-          orElse: () => devices.isNotEmpty ? devices.first : {'id': null},
-        );
-        _selectedDeviceId = defaultDevice['id'];
+        
+        // Try to find a default device
+        int? defaultDeviceId;
+        
+        // First try to find a device with 'default' in the name
+        try {
+          final defaultDevice = devices.firstWhere(
+            (d) => d['name']?.toLowerCase().contains('default') ?? false,
+          );
+          defaultDeviceId = defaultDevice['id'];
+        } catch (e) {
+          // If no device with 'default' in the name, try to find the first input device
+          if (devices.isNotEmpty) {
+            defaultDeviceId = devices.first['id'];
+          }
+        }
+        
+        _selectedDeviceId = defaultDeviceId;
         _isFetchingDevices = false;
       });
     } catch (e) {
@@ -616,9 +631,18 @@ class _SoundIdentifyScreenState extends State<SoundIdentifyScreen> {
                       children: [
                         // Record/Stop button
                         FloatingActionButton(
-                          onPressed: _toggleRecording,
+                          onPressed: _isLoading ? null : _toggleRecording,
                           backgroundColor: _recorder.isRecording ? Colors.red : Colors.green,
-                          child: Icon(_recorder.isRecording ? Icons.stop : Icons.mic),
+                          child: _isLoading 
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Icon(_recorder.isRecording ? Icons.stop : Icons.mic),
                         ),
                         
                         const SizedBox(width: 20.0),
@@ -685,27 +709,49 @@ class _SoundIdentifyScreenState extends State<SoundIdentifyScreen> {
             if (_isFetchingDevices)
               const Center(child: CircularProgressIndicator())
             else if (_audioDevices.isNotEmpty)
-              DropdownButtonFormField<int>(
-                value: _selectedDeviceId,
-                items: _audioDevices.map((device) {
-                  return DropdownMenuItem<int>(
-                    value: device['id'],
-                    child: Text(
-                      device['name'],
-                      overflow: TextOverflow.ellipsis,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Audio Input Device',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<int>(
+                    value: _selectedDeviceId,
+                    items: _audioDevices.map((device) {
+                      return DropdownMenuItem<int>(
+                        value: device['id'],
+                        child: Text(
+                          device['name'] ?? 'Unknown Device',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (int? newValue) {
+                      if (newValue != null) {
+                        setState(() {
+                          _selectedDeviceId = newValue;
+                        });
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Select Audio Device',
+                      border: const OutlineInputBorder(),
+                      filled: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      errorText: _selectedDeviceId == null && !_isFetchingDevices 
+                          ? 'No audio device selected' 
+                          : null,
                     ),
-                  );
-                }).toList(),
-                onChanged: (int? newValue) {
-                  setState(() {
-                    _selectedDeviceId = newValue;
-                  });
-                },
-                decoration: const InputDecoration(
-                  labelText: 'Select Audio Device',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                ),
+                    isExpanded: true,
+                  ),
+                ],
+              )
+            else
+              const Text(
+                'No audio input devices found',
+                style: TextStyle(color: Colors.red),
               ),
             
             const SizedBox(height: 24.0),

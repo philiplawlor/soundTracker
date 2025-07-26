@@ -1,5 +1,31 @@
 # CHANGES.md - SoundTracker
 
+## [0.9.1] - 2025-07-25
+- Fixed line endings in frontend code
+- Updated project documentation
+- Improved error handling in audio device selection
+
+## [0.9.0] - 2025-07-25
+- **Enhanced Audio Handling**:
+  - Implemented cross-platform audio device management
+  - Added proper WAV file format support for web recordings
+  - Improved audio level metering with accurate dBFS calculation
+  - Added real-time audio visualization
+- **WebSocket Improvements**:
+  - Stable WebSocket connection for real-time audio streaming
+  - Added reconnection logic and error handling
+  - Optimized audio data transmission
+- **Frontend Updates**:
+  - Complete audio device selection UI
+  - Real-time waveform visualization
+  - Improved error handling and user feedback
+  - Enhanced recording controls
+- **Backend Optimizations**:
+  - Better audio device handling
+  - Improved error handling and logging
+  - Optimized audio processing pipeline
+  - Added support for multiple audio formats
+
 ## [0.8.0] - 2025-07-25
 - **Fixed WebSocket Disconnection**: Resolved the root cause of the WebSocket errors by installing the `PyAudio` package, which provides the necessary system-level audio drivers for the `sounddevice` library to function correctly.
 - **Fixed Missing Audio Devices**: Corrected a critical bug in `main.py` where the API router for audio capture was not being included. This exposed the `/api/v1/audio/devices` endpoint, allowing the frontend to successfully fetch and display the list of available audio devices.
