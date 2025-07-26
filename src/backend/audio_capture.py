@@ -224,7 +224,7 @@ def main():
     """Example usage of the AudioCapture class."""
     
     def print_level(sample):
-        print(f"\rNoise level: {sample.db:.1f} dBFS", end="", flush=True)
+        print(f"Noise level: {sample.db:.1f} dBFS")
     
     print("Starting audio capture (press Ctrl+C to stop)...")
     
