@@ -6,6 +6,7 @@ import 'dart:math';
 import 'dart:html' as html;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -15,7 +16,10 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:logging/logging.dart';
 import 'services/api_service.dart';
 import 'services/audio_recorder_service.dart';
+import 'services/audio_websocket_service.dart';
+import 'providers/audio_websocket_provider.dart';
 import 'widgets/audio_waveform_painter.dart';
+import 'widgets/audio_level_meter.dart';
 
 final _log = Logger('SoundIdentifyScreen');
 
@@ -29,14 +33,21 @@ class SoundTrackerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'SoundTracker',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (context) => AudioWebSocketProvider(),
+        ),
+      ],
+      child: MaterialApp(
+        title: 'SoundTracker',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+          useMaterial3: true,
+        ),
+        home: const SoundIdentifyScreen(),
+        debugShowCheckedModeBanner: false,
       ),
-      home: const SoundIdentifyScreen(),
-      debugShowCheckedModeBanner: false,
     );
   }
 }
@@ -70,12 +81,25 @@ class _SoundIdentifyScreenState extends State<SoundIdentifyScreen> {
     super.initState();
     _initRecorder();
     _fetchAudioDevices();
+    
+    // Initialize WebSocket connection
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final webSocketProvider = context.read<AudioWebSocketProvider>();
+      webSocketProvider.connect().catchError((error) {
+        if (mounted) {
+          setState(() {
+            _error = 'WebSocket connection failed: $error';
+          });
+        }
+      });
+    });
   }
   
   @override
   void dispose() {
     _recorder.dispose();
     _audioPlayer.dispose();
+    // WebSocket will be disposed by the provider
     super.dispose();
   }
   
@@ -571,56 +595,88 @@ class _SoundIdentifyScreenState extends State<SoundIdentifyScreen> {
                     ),
                     const SizedBox(height: 16.0),
                     
-                    // Waveform visualization
-                    StreamBuilder<RecordingState>(
-                      stream: _recorder.state,
-                      builder: (context, snapshot) {
-                        final state = snapshot.data;
-                        final isRecording = state?.isRecording ?? false;
-                        final isPaused = state?.isPaused ?? false;
+                    // Audio visualization
+                    Column(
+                      children: [
+                        // Real-time audio level meter from WebSocket
+                        const Text(
+                          'Live Audio Level',
+                          style: TextStyle(
+                            fontSize: 16.0,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8.0),
+                        const AudioLevelMeter(
+                          height: 120,
+                          divisions: 30,
+                          minDb: -60,
+                          maxDb: 0,
+                        ),
+                        const SizedBox(height: 24.0),
                         
-                        return Column(
-                          children: [
-                            Container(
-                              height: 100,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(8.0),
-                              ),
-                              child: CustomPaint(
-                                painter: AudioWaveformPainter(
-                                  amplitude: state?.amplitude ?? 0.0,
-                                  isRecording: isRecording && !isPaused,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16.0),
+                        // Recording waveform (only shown when recording)
+                        StreamBuilder<RecorderState>(
+                          stream: _recorder.onStateChanged(),
+                          builder: (context, snapshot) {
+                            final state = snapshot.data;
+                            final isRecording = state?.isRecording ?? false;
+                            final isPaused = state?.isPaused ?? false;
                             
-                            // Timer
-                            Text(
-                              state?.formattedDuration ?? '00:00',
-                              style: const TextStyle(
-                                fontSize: 24.0,
-                                fontFamily: 'monospace',
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue,
-                              ),
-                            ),
+                            if (!isRecording) {
+                              return const SizedBox.shrink();
+                            }
                             
-                            if (isPaused) ...[
-                              const SizedBox(height: 8.0),
-                              const Text(
-                                'Paused',
-                                style: TextStyle(
-                                  color: Colors.orange,
-                                  fontWeight: FontWeight.bold,
+                            return Column(
+                              children: [
+                                const Text(
+                                  'Recording...',
+                                  style: TextStyle(
+                                    fontSize: 16.0,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ],
-                        );
-                      },
+                                const SizedBox(height: 8.0),
+                                Container(
+                                  height: 80,
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(8.0),
+                                  ),
+                                  child: CustomPaint(
+                                    painter: AudioWaveformPainter(
+                                      amplitude: state?.amplitude ?? 0.0,
+                                      isRecording: isRecording && !isPaused,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8.0),
+                                Text(
+                                  state?.formattedDuration ?? '00:00',
+                                  style: const TextStyle(
+                                    fontSize: 24.0,
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                                if (isPaused) ...[
+                                  const SizedBox(height: 8.0),
+                                  const Text(
+                                    'Paused',
+                                    style: TextStyle(
+                                      color: Colors.orange,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
+                        ),
+                      ],
                     ),
                     
                     const SizedBox(height: 16.0),

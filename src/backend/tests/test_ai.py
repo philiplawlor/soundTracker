@@ -6,9 +6,9 @@ from typing import Generator
 import os
 
 # Import the router from the application, but NOT the global ai_model
-from backend.routers.ai import router as ai_router
-from backend.database import get_session
-from backend.models import SoundEvent
+from ..routers.ai import router as ai_router
+from ..database import get_session
+from ..models import SoundEvent
 
 # Use an in-memory SQLite database for testing
 DATABASE_URL = "sqlite:///:memory:"

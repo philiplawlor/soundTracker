@@ -150,13 +150,14 @@ async def websocket_test(websocket: WebSocket):
 async def on_startup():
     """Initialize database and other resources on startup."""
     try:
-        create_db_and_tables()
-        # Ensure static directory exists
-        os.makedirs(STATIC_DIR, exist_ok=True)
-        print("✅ Database tables created successfully")
+        # Initialize the database with our new function
+        init_db()
+        print("Database initialization completed successfully")
     except Exception as e:
-        # Log the error but do not re-raise, to allow the app to start
-        print(f"❌ Error initializing database: {e}")
+        print(f"Error during database initialization: {e}")
+        # Don't raise here to allow the app to start even if database setup fails
+        # This is important for development when the database might not be available
+        pass
 
 # Debug endpoint to list all routes
 @app.get("/debug/routes", include_in_schema=False)

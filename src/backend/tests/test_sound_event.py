@@ -1,14 +1,12 @@
 import pytest
 from fastapi.testclient import TestClient
-from backend.main import app
+from ..main import app
 from sqlmodel import SQLModel, create_engine, Session
-from backend.database import get_session
+from ..database import get_session
 import os
 
-import backend.database
+from .. import database
 
-import os
-import backend.database
 
 @pytest.fixture(name="client")
 def client_fixture():
@@ -17,8 +15,8 @@ def client_fixture():
     db_url = f"sqlite:///{test_db_path}"
     engine = create_engine(db_url)
 
-    # Patch the backend.database.engine to use the test engine
-    backend.database.engine = engine
+    # Patch the database.engine to use the test engine
+    database.engine = engine
 
     def get_session_override():
         with Session(engine) as session:

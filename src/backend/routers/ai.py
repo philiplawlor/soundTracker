@@ -15,7 +15,7 @@ from sqlmodel import Session
 from pydantic import BaseModel
 
 from ..database import get_session
-from backend.models import (
+from ..models import (
     SoundEvent,
     SoundEventCreate,
     SoundType,
